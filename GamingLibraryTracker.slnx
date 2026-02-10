@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GamingLibrary.API/GamingLibrary.API.csproj" />
+  <Project Path="GamingLibrary.Core/GamingLibrary.Core.csproj" />
+  <Project Path="GamingLibrary.Infrastructure/GamingLibrary.Infrastructure.csproj" />
+</Solution>
