@@ -24,12 +24,6 @@ namespace GamingLibrary.API
             // Register AuthService
             builder.Services.AddScoped<IAuthService, AuthService>();
 
-            builder.Services.AddHttpClient();
-            builder.Services.AddScoped<IPlatformService, SteamService>();
-
-            builder.Services.AddHttpClient<IgdbService>();
-            builder.Services.AddSingleton<IMetadataService, IgdbService>();
-
             // Configure JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT Secret Key Not Configured");

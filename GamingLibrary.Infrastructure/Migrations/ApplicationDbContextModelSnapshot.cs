@@ -22,144 +22,13 @@ namespace GamingLibrary.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("GamingLibrary.Core.Entities.Game", b =>
-                {
-                    b.Property<int>("GameID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GameID"));
-
-                    b.Property<string>("CoverImageURL")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Developer")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("NormalizedTitle")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("Publisher")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime?>("ReleaseDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("GameID");
-
-                    b.HasIndex("NormalizedTitle");
-
-                    b.ToTable("Games");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.JournalEntry", b =>
-                {
-                    b.Property<int>("EntryID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EntryID"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int?>("Rating")
-                        .HasColumnType("int")
-                        .HasAnnotation("CheckConstraint", "CHK_Rating BETWEEN 1 AND 10");
-
-                    b.Property<int?>("SessionDurationMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Tags")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int>("UserGameID")
-                        .HasColumnType("int");
-
-                    b.HasKey("EntryID");
-
-                    b.HasIndex("UserGameID");
-
-                    b.ToTable("JournalEntries");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.PlatformConnection", b =>
-                {
-                    b.Property<int>("ConnectionID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConnectionID"));
-
-                    b.Property<DateTime>("ConnectedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastSyncedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("PlatformUserId")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<int>("UserID")
-                        .HasColumnType("int");
-
-                    b.HasKey("ConnectionID");
-
-                    b.HasIndex("UserID", "Platform")
-                        .IsUnique();
-
-                    b.ToTable("PlatformConnections");
-                });
-
             modelBuilder.Entity("GamingLibrary.Core.Entities.User", b =>
                 {
-                    b.Property<int>("UserID")
+                    b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -185,7 +54,7 @@ namespace GamingLibrary.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.HasKey("UserID");
+                    b.HasKey("ID");
 
                     b.HasIndex("Email")
                         .IsUnique();
@@ -194,116 +63,6 @@ namespace GamingLibrary.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.UserGame", b =>
-                {
-                    b.Property<int>("UserGameID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserGameID"));
-
-                    b.Property<DateTime>("AddedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int>("GameID")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LastPlayedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("PlatformGameID")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<int>("PlaytimeMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("PurchaseDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("UserID")
-                        .HasColumnType("int");
-
-                    b.HasKey("UserGameID");
-
-                    b.HasIndex("GameID");
-
-                    b.HasIndex("UserID", "Platform", "PlatformGameID")
-                        .IsUnique();
-
-                    b.ToTable("UserGames");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.JournalEntry", b =>
-                {
-                    b.HasOne("GamingLibrary.Core.Entities.UserGame", "UserGame")
-                        .WithMany("JournalEntries")
-                        .HasForeignKey("UserGameID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UserGame");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.PlatformConnection", b =>
-                {
-                    b.HasOne("GamingLibrary.Core.Entities.User", "User")
-                        .WithMany("PlatformConnections")
-                        .HasForeignKey("UserID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.UserGame", b =>
-                {
-                    b.HasOne("GamingLibrary.Core.Entities.Game", "Game")
-                        .WithMany("UserGames")
-                        .HasForeignKey("GameID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GamingLibrary.Core.Entities.User", "User")
-                        .WithMany("UserGames")
-                        .HasForeignKey("UserID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Game");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.Game", b =>
-                {
-                    b.Navigation("UserGames");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.User", b =>
-                {
-                    b.Navigation("PlatformConnections");
-
-                    b.Navigation("UserGames");
-                });
-
-            modelBuilder.Entity("GamingLibrary.Core.Entities.UserGame", b =>
-                {
-                    b.Navigation("JournalEntries");
                 });
 #pragma warning restore 612, 618
         }
