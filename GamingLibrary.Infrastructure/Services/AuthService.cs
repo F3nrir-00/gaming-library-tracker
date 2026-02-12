@@ -49,7 +49,7 @@ namespace GamingLibrary.Infrastructure.Services
 
             return new AuthResponse
             {
-                ID = user.ID,
+                ID = user.UserID,
                 Username = user.Username,
                 Email = user.Email,
                 Token = token
@@ -71,7 +71,7 @@ namespace GamingLibrary.Infrastructure.Services
 
             return new AuthResponse
             {
-                ID = user.ID,
+                ID = user.UserID,
                 Username= user.Username,
                 Email = user.Email,
                 Token = token
@@ -88,7 +88,7 @@ namespace GamingLibrary.Infrastructure.Services
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.ID.ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, user.UserID.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
