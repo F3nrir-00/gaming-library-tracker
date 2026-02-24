@@ -21,38 +21,68 @@ namespace GamingLibrary.API.Controllers
         }
 
         [HttpGet("library")]
-        public async Task<IActionResult> GetMyLibrary([FromQuery] string? platform = null)
+        public async Task<IActionResult> GetMyLibrary([FromQuery] string? platform = null, [FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] string sortBy = "playtime", [FromQuery] string sortOrder = "desc")
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (userId == 0) return Unauthorized();
 
-            if (userId == 0)
-                return Unauthorized(new { message = "Invalid user token" });
+            var query = _context.UserGames
+                .Include(ug => ug.Game)
+                .Where(ug => ug.UserID == userId);
 
-            var query = _context.UserGames.Include(ug => ug.Game).Where(ug => ug.UserID == userId);
-
-            if(!string.IsNullOrWhiteSpace(platform))
+            // Filter by platform
+            if (!string.IsNullOrWhiteSpace(platform))
                 query = query.Where(ug => ug.Platform.ToLower() == platform.ToLower());
 
-            var games = await query.OrderByDescending(ug => ug.PlaytimeMinutes).Select(ug => new
+            // Filter by status
+            if (!string.IsNullOrWhiteSpace(status))
+                query = query.Where(ug => ug.Status != null && ug.Status.ToLower() == status.ToLower());
+
+            // Search by title
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(ug => ug.Game.Title.Contains(search));
+
+            // Sorting
+            query = sortBy.ToLower() switch
             {
-                ug.UserGameID,
-                ug.Platform,
-                ug.PlatformGameID,
-                GameTitle = ug.Game.Title,
-                ug.Game.CoverImageURL,
-                ug.Game.Developer,
-                ug.Game.Publisher,
-                ug.PlaytimeMinutes,
-                PlaytimeHours = Math.Round(ug.PlaytimeMinutes / 60.0, 1),
-                ug.LastPlayedAt,
-                ug.Status,
-                ug.AddedAt
-            }).ToListAsync();
+                "playtime" => sortOrder == "asc"
+                    ? query.OrderBy(ug => ug.PlaytimeMinutes)
+                    : query.OrderByDescending(ug => ug.PlaytimeMinutes),
+                "lastplayed" => sortOrder == "asc"
+                    ? query.OrderBy(ug => ug.LastPlayedAt)
+                    : query.OrderByDescending(ug => ug.LastPlayedAt),
+                "title" => sortOrder == "asc"
+                    ? query.OrderBy(ug => ug.Game.Title)
+                    : query.OrderByDescending(ug => ug.Game.Title),
+                "added" => sortOrder == "asc"
+                    ? query.OrderBy(ug => ug.AddedAt)
+                    : query.OrderByDescending(ug => ug.AddedAt),
+                _ => query.OrderByDescending(ug => ug.PlaytimeMinutes)
+            };
+
+            var games = await query
+                .Select(ug => new
+                {
+                    ug.UserGameID,
+                    ug.Platform,
+                    ug.PlatformGameID,
+                    GameTitle = ug.Game.Title,
+                    ug.Game.CoverImageURL,
+                    ug.Game.Developer,
+                    ug.Game.Publisher,
+                    ug.PlaytimeMinutes,
+                    PlaytimeHours = Math.Round(ug.PlaytimeMinutes / 60.0, 1),
+                    ug.LastPlayedAt,
+                    ug.Status,
+                    ug.AddedAt
+                })
+                .ToListAsync();
 
             return Ok(new
             {
                 totalGames = games.Count,
                 totalPlaytimeHours = Math.Round(games.Sum(g => g.PlaytimeHours), 1),
+                filters = new { platform, status, search, sortBy, sortOrder },
                 games
             });
         }
@@ -127,5 +157,49 @@ namespace GamingLibrary.API.Controllers
                 mostPlayedGame
             });
         }
+
+        [HttpPut("library/{userGameId}/status")]
+        public async Task<IActionResult> UpdateGameStatus(int userGameId,[FromBody] UpdateGameStatusRequest request)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (userId == 0) return Unauthorized();
+
+            // Validate status value
+            var validStatuses = new[] { "Not Started", "In Progress", "Completed", "Abandoned" };
+            if (!validStatuses.Contains(request.Status))
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid status",
+                    validStatuses
+                });
+            }
+
+            var userGame = await _context.UserGames
+                .Include(ug => ug.Game)
+                .FirstOrDefaultAsync(ug => ug.UserGameID == userGameId && ug.UserID == userId);
+
+            if (userGame == null)
+                return NotFound(new { message = "Game not found in your library" });
+
+            userGame.Status = request.Status;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Game {GameTitle} status updated to {Status} by user {UserId}",
+                userGame.Game.Title, request.Status, userId);
+
+            return Ok(new
+            {
+                userGameId,
+                gameTitle = userGame.Game.Title,
+                status = userGame.Status,
+                message = "Status updated successfully"
+            });
+        }
+    }
+
+    public class UpdateGameStatusRequest
+    {
+        public string Status { get; set; } = string.Empty;
     }
 }

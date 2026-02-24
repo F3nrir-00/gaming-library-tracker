@@ -384,29 +384,89 @@ User → Frontend → Backend → Platform OAuth
 
 ---
 
-### Phase 2: Platform Integration (Week 3-4)
-**Goal:** Integrate first gaming platform (Steam)
+### Phase 2: Platform Integration (Week 3-4) - IN PROGRESS 🔄
+**Goal:** Integrate Steam gaming platform and game metadata
+
+**Decisions Made:**
+- ✅ Steam Integration: Steam OpenID + Web API Key (public profiles)
+- ✅ Game Metadata: IGDB API (via Twitch OAuth) for developer, publisher, description
+- ✅ Architecture: IPlatformService interface for future platform extensibility
+- ✅ Sync Strategy: Batch lookups + bulk inserts (N+1 query optimization)
+- ✅ Journal entries included in Phase 2 schema (added early for completeness)
 
 **Tasks:**
-1. Implement Steam OAuth + API integration
-   - OAuth flow endpoints
-   - Token storage (encrypted)
-   - Steam Web API client
-2. Create game sync service
-   - Fetch user's Steam library
-   - Map Steam games to Games table
-   - Create UserGames records
-3. Build unified library endpoint
-   - GET /api/games (user's complete library)
-   - Filtering and sorting
-4. Add background job for periodic sync
-   - Use Hangfire or Quartz.NET
-   - Schedule hourly/daily syncs
+1. ✅ **Database Schema Expansion**
+   - Created PlatformConnection entity
+   - Created Game entity (platform-agnostic master list)
+   - Created UserGame entity (links users to games per platform)
+   - Created JournalEntry entity (per-game notes, ratings, session tracking)
+   - Updated User entity with navigation properties
+   - Updated ApplicationDbContext with new DbSets and configurations
+   - Applied migration: `AddPlatformGameAndJournalEntities`
 
-**Deliverables:**
-- Working Steam integration
-- Synced game library
-- Background sync job
+2. ✅ **Steam API Integration**
+   - Created Steam DTOs with `[JsonPropertyName]` attributes for snake_case mapping
+   - Created `IPlatformService` interface
+   - Implemented `SteamService`
+   - Fixed cover image: Uses `https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg`
+   - Registered `HttpClient` and `SteamService` in Program.cs
+
+3. ✅ **IGDB Game Metadata Integration**
+   - Created Twitch developer account and registered application
+   - Created IGDB DTOs (IgdbGameDto, IgdbCoverDto, IgdbInvolvedCompanyDto, etc.)
+   - Created `IGameMetadataService` interface
+   - Implemented `IgdbService` with Twitch OAuth token management
+   - Token caching (fetches new token only when expired)
+   - Registered as Singleton to preserve token cache across requests
+
+4. ✅ **Sync Performance Optimization (N+1 Fix)**
+   - Batch lookup of existing games before loop (2 queries total vs N*2)
+   - In-memory dictionary lookups (O(1)) instead of per-game DB queries
+   - Bulk inserts with `AddRangeAsync`
+   - Batched `SaveChangesAsync` at end of sync
+   - IGDB only called for new games or games missing all metadata
+
+5. ✅ **IGDB Rate Limiting & Search Improvements**
+   - Added `SemaphoreSlim` to enforce ~4 requests/second
+   - Minimum 275ms interval between requests
+   - Multi-strategy search fallback:
+     - Strategy 1: Exact title search
+     - Strategy 2: Cleaned title (removes ®, ™, edition markers)
+     - Strategy 3: Base title only (before colon/dash)
+   - Quote escaping in Apicalypse queries
+   - Re-enrichment only when ALL metadata fields are missing
+
+6. ✅ **Platform & Games Controllers**
+   - `POST /api/platform/steam/connect` - Connect Steam account
+   - `POST /api/platform/steam/sync` - Sync Steam library
+   - `GET /api/platform/connections` - View connected platforms
+   - `DELETE /api/platform/{platform}` - Disconnect platform
+   - `GET /api/games/library` - View all games (with platform filter)
+   - `GET /api/games/library/{id}` - View specific game with journal count
+   - `GET /api/games/stats` - Gaming statistics
+
+7. ⏳ **Journal Entry CRUD** - NEXT STEP
+8. ⏳ **Background sync job** - Future enhancement
+
+**Completed Deliverables:**
+- ✅ Steam library sync working
+- ✅ Game metadata from IGDB (developer, publisher, description, release date)
+- ✅ Cover images from Steam CDN
+- ✅ Platform connection management
+- ✅ Unified games library endpoint
+- ✅ Gaming statistics endpoint
+- ✅ N+1 query optimization
+- ✅ IGDB rate limiting and search fallback strategies
+
+**Known Limitations:**
+- Steam profile must be public for sync to work
+- IGDB match rate varies by game title complexity
+- Background sync not yet implemented (manual sync only)
+
+**Next Steps:**
+- Build Journal Entry CRUD endpoints
+- Implement game status updates
+- Begin Phase 3: Progress tracking features
 
 ---
 
@@ -1094,6 +1154,185 @@ docker-compose up --build
 
 ---
 
+### Session 4: Phase 2 - Database Schema & Steam Integration
+**Date:** February 12, 2026
+**Goal:** Expand database schema and implement Steam library sync
+
+#### Steps Completed:
+
+**1. New Entities Created**
+Added to `GamingLibrary.Core/Entities/`:
+
+- `PlatformConnection.cs` - Links users to gaming platforms
+  - Stores platform name, platform-specific user ID
+  - Tracks connection status and last sync time
+  - Unique constraint: one connection per user per platform
+
+- `Game.cs` - Platform-agnostic master game list
+  - NormalizedTitle for cross-platform matching
+  - Optional metadata: description, cover image, release date, developer, publisher
+  - One game can belong to many users across platforms
+
+- `UserGame.cs` - Links users to games per platform
+  - Stores platform-specific game ID (e.g., Steam AppID)
+  - Tracks playtime, last played, and completion status
+  - Navigation property to JournalEntries
+
+- `JournalEntry.cs` - Per-game user notes (added proactively)
+  - Content, optional rating (1-10), session duration, tags
+  - Linked to UserGame (not directly to Game)
+  - Added early based on known Phase 3 requirements
+
+- Updated `User.cs` with navigation properties for PlatformConnections and UserGames
+
+**2. Migration Applied**
+Migration `AddPlatformGameAndJournalEntities` created and applied:
+- 4 new tables: PlatformConnections, Games, UserGames, JournalEntries
+- All foreign keys and cascade deletes configured
+- Unique constraints and indexes applied
+- Verified in Docker via auto-migration on startup
+
+**3. Steam DTOs Created**
+Added `GamingLibrary.Core/DTOs/Steam/`:
+- `SteamGameDto.cs` - Fixed snake_case mapping with `[JsonPropertyName]` attributes
+  - Key fix: `playtime_forever`, `rtime_last_played`, `img_icon_url` all properly mapped
+- `SteamLibraryResponseDto.cs` - Maps Steam's nested response structure
+
+**4. Steam Service Implemented**
+Created `SteamService.cs` in `GamingLibrary.Infrastructure/Services/`:
+- Implements `IPlatformService` interface
+- Calls `GetOwnedGames` Steam endpoint
+- Converts Unix timestamps to DateTime for LastPlayedAt
+- Fixed cover image URL: `https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg`
+  - Previous approach used unreliable image hash
+  - New approach uses AppID-based CDN URL (always available)
+
+**5. N+1 Query Optimization**
+Identified and resolved N+1 query problem in `SyncUserGamesAsync`:
+
+Before:
+- 2 DB queries per game (one for Games table, one for UserGames table)
+- 500 games = ~1,000 DB queries
+
+After:
+- 2 total DB queries for batch lookups using `ToDictionaryAsync`
+- In-memory O(1) dictionary lookups during loop
+- Bulk inserts with `AddRangeAsync`
+- Single `SaveChangesAsync` at end of sync
+- IGDB only called for new games or games missing all metadata
+
+**6. Platform & Games Controllers Created**
+- `PlatformController.cs`:
+  - `POST /api/platform/steam/connect`
+  - `POST /api/platform/steam/sync`
+  - `GET /api/platform/connections`
+  - `DELETE /api/platform/{platform}`
+- `GamesController.cs`:
+  - `GET /api/games/library` (with optional platform filter)
+  - `GET /api/games/library/{id}` (includes journal entry count)
+  - `GET /api/games/stats` (total games, playtime, platform breakdown)
+
+#### Challenges Encountered:
+
+1. **Playtime/Stats Returning Null**
+   - Root cause: Steam API returns snake_case JSON (`playtime_forever`) but DTO used PascalCase
+   - `PropertyNameCaseInsensitive` handles case differences but NOT underscore differences
+   - Solution: Added `[JsonPropertyName]` attributes to all Steam DTOs
+
+2. **Cover Images Returning Null**
+   - Root cause: `GetOwnedGames` endpoint returns only an image hash, not a full URL
+   - Our helper method wasn't building the URL correctly
+   - Solution: Switched to AppID-based Steam CDN URL pattern (no hash needed)
+
+---
+
+### Session 5: Phase 2 - IGDB Integration & Optimization
+**Date:** February 12, 2026
+**Goal:** Enrich game metadata using IGDB API and resolve sync issues
+
+#### Steps Completed:
+
+**1. IGDB Account Setup**
+- Created Twitch developer account
+- Registered application in Twitch Developer Console
+- Obtained Client ID and Client Secret
+- Added `IgdbSettings` to appsettings.json and appsettings.Docker.json
+
+**2. IGDB DTOs Created**
+Added `GamingLibrary.Core/DTOs/IGDB/`:
+- `IgdbGameDto.cs` - Main game response with nested objects
+- `IgdbCoverDto.cs` - Cover image URL
+- `IgdbInvolvedCompanyDto.cs` - Developer/publisher companies
+- `IgdbCompanyDto.cs` - Company name
+- `IgdbGenreDto.cs` - Genre information
+
+**3. IGameMetadataService Interface**
+Created `IGameMetadataService.cs` in `GamingLibrary.Core/Interfaces/`:
+- `EnrichGameMetadataAsync(Game game)` - Enriches entity with IGDB data
+- `SearchGameAsync(string title)` - Searches IGDB by title
+
+**4. IgdbService Implemented**
+Created `IgdbService.cs` in `GamingLibrary.Infrastructure/Services/`:
+- Twitch OAuth token management:
+  - Fetches token on first use
+  - Caches token in memory
+  - Refreshes automatically 5 minutes before expiry
+- Registered as **Singleton** (preserves token cache across requests)
+- Enriches Game entity with: description, release date, developer, publisher, cover image
+- IGDB cover image: upgrades from `t_thumb` to `t_cover_big` resolution
+- Steam cover image takes priority over IGDB cover
+
+**5. Rate Limiting Implemented**
+Added to `IgdbService.cs`:
+- `SemaphoreSlim` ensures single concurrent IGDB call (thread-safe)
+- Minimum 275ms between requests (~4 requests/second with buffer)
+- Prevents `TooManyRequests` (429) errors from IGDB
+
+**6. Multi-Strategy Search Fallback**
+Added to `IgdbService.cs` to handle poor IGDB match rates:
+- Strategy 1: Exact title search
+- Strategy 2: Cleaned title
+  - Removes ®, ™, © symbols
+  - Removes common edition markers (GOTY, Definitive Edition, Remastered, etc.)
+- Strategy 3: Base title only (strips subtitle after colon/dash)
+- Quote escaping in Apicalypse queries to prevent query syntax errors
+
+**7. SteamService Updated**
+- Injected `IGameMetadataService` into `SteamService`
+- IGDB called only for genuinely new games
+- Re-enrichment only when ALL three fields missing (developer AND publisher AND description)
+- Prevents unnecessary IGDB calls on subsequent syncs
+
+#### Challenges Encountered:
+
+1. **TooManyRequests from IGDB**
+   - Root cause: No rate limiting on IGDB calls, sequential requests too fast
+   - Solution: Added `SemaphoreSlim` + minimum interval enforcement
+
+2. **Low IGDB Match Rate**
+   - Root cause: Steam titles often contain special characters and edition markers
+   - Solution: Multi-strategy search with progressive title simplification
+   - Examples fixed:
+     - `"The Witcher® 3: Wild Hunt"` → cleaned → `"The Witcher 3: Wild Hunt"` → base → `"The Witcher 3"`
+     - `"Dark Souls™: Remastered"` → cleaned → `"Dark Souls: Remastered"` → base → `"Dark Souls"`
+
+#### Current State:
+✅ Steam library syncing with playtime and last played  
+✅ Cover images loading from Steam CDN  
+✅ IGDB metadata enriching games with developer, publisher, description  
+✅ Rate limiting preventing IGDB 429 errors  
+✅ Multi-strategy search improving match rates  
+✅ N+1 query problem resolved  
+✅ All endpoints tested and working in Docker  
+
+#### Next Session Goals:
+- Implement Journal Entry CRUD endpoints
+- Add game status update endpoint
+- Begin Phase 3: Progress tracking features
+- Commit Phase 2 work to GitHub
+
+---
+
 ## Contact & Collaboration
 
 **Project Type:** Portfolio/Learning Project  
@@ -1106,4 +1345,4 @@ docker-compose up --build
 ---
 
 *Document created: February 2026*  
-*Last updated: February 10, 2026 - **PHASE 1 COMPLETE** - Fully containerized application with Docker Compose*
+*Last updated: February 12, 2026 - Phase 2 in progress - Steam + IGDB integration complete*
