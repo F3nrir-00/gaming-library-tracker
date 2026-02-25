@@ -586,11 +586,20 @@ User → Frontend → Backend → Platform OAuth
    - Component key prop for proper state reset between games
    - Responsive modal design
 
-10. ⏳ **Quick Status Updates on Cards** - NEXT STEP
-   - Status dropdown on game cards
-   - Quick update without opening modal
+10. ✅ **Quick Status Updates on Cards**
+   - Clickable status badges with dropdown arrow
+   - Portal-based dropdown rendering at document body level
+   - Smart positioning: opens upward near bottom of screen, downward otherwise
+   - Off-screen measurement technique (no flash/repositioning)
+   - Actual height calculation (no hardcoded values)
+   - Click outside to close
+   - Prevents card click when interacting with status
+   - Color-coded status options matching card badges
+   - Current status highlighted in dropdown
+   - Optimistic UI updates via React Query
+   - Loading state during update
 
-11. ⏳ **Journal Component**
+11. ⏳ **Journal Component** - NEXT STEP
    - Entry creation form
    - Entry list/timeline
    - Tags and ratings
@@ -612,9 +621,9 @@ User → Frontend → Backend → Platform OAuth
 - ✅ React Query caching and automatic refetching
 - ✅ Game detail modal with status updates
 - ✅ High-resolution images in modal
+- ✅ Quick status dropdown on cards
 
 **Next Steps:**
-- Add quick status updates on game cards
 - Create journal entry interface
 - Build statistics dashboard
 - Add user management page
@@ -2009,6 +2018,160 @@ new Date(game.lastPlayedAt).toLocaleDateString('en-US', {
 
 ---
 
+### Session 10: Quick Status Updates with Smart Positioning
+**Date:** February 12, 2026
+**Goal:** Add clickable status dropdown to game cards with intelligent positioning
+
+#### Steps Completed:
+
+**1. Interactive Status Badge**
+Updated GameCard component:
+- Status badge now clickable with dropdown arrow icon
+- Hover effects to indicate interactivity
+- "Set Status" button for games without status
+- Color-coded badges matching game status
+- Click handler with `e.stopPropagation()` to prevent card click
+
+**2. Dropdown Menu Implementation**
+Created dropdown with four status options:
+- Not Started (gray)
+- In Progress (blue)
+- Completed (green)
+- Abandoned (red)
+- Current status highlighted in menu
+- Disabled state during mutation
+- Click outside backdrop to close
+
+**3. Portal Rendering**
+Used React Portal (`createPortal`) to solve overflow issues:
+- Renders dropdown at `document.body` level
+- Avoids clipping by card container
+- Fixed positioning using absolute coordinates
+- No `overflow-hidden` conflicts
+
+**4. Smart Positioning Algorithm**
+Challenge: Dropdown cut off at bottom of screen
+
+Initial attempts:
+- ❌ Relative positioning with `bottom-full` class - didn't work with scroll
+- ❌ Simple useEffect calculation - visible flash during repositioning
+- ❌ Two-step render - still showed temporary position
+
+Final solution - Off-screen measurement:
+```typescript
+// Step 1: Render menu off-screen with visibility hidden
+style={{
+  top: '-9999px',
+  left: '-9999px',
+  visibility: 'hidden'
+}}
+
+// Step 2: Measure actual height via ref
+const menuHeight = menuRef.current.offsetHeight;
+
+// Step 3: Calculate position based on available space
+const spaceBelow = window.innerHeight - rect.bottom;
+const openUpward = spaceBelow < menuHeight + 8;
+
+// Step 4: Set final position and show menu
+setMenuPosition({
+  top: openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4,
+  left: rect.left
+});
+```
+
+**5. State Management**
+Three-state system:
+- `showStatusMenu` - Menu is open
+- `isMeasuring` - Menu is measuring off-screen
+- `menuPosition` - Final calculated position (null during measurement)
+
+Flow:
+1. Click → `showStatusMenu = true`, `isMeasuring = true`
+2. Menu renders off-screen (invisible)
+3. useEffect measures height, calculates position
+4. Menu moves to final position and becomes visible
+5. Backdrop appears
+
+**6. Position Calculation Details**
+- Button position: `getBoundingClientRect()`
+- Menu height: `menuRef.current.offsetHeight` (actual measured height, no hardcoding)
+- Space below: `window.innerHeight - rect.bottom`
+- Opens upward if: `spaceBelow < menuHeight + 8` (8px buffer)
+- Gap: 4px between button and menu (both directions)
+
+**7. Event Handling**
+- `e.stopPropagation()` on all dropdown interactions
+- Prevents card click when updating status
+- Backdrop click closes menu
+- Status click triggers mutation and closes menu
+- Card click still opens modal (status doesn't interfere)
+
+**8. Mutation Integration**
+Status update flow:
+```typescript
+const updateStatusMutation = useMutation({
+  mutationFn: (status: string) => gameService.updateStatus(game.userGameId, status),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['games'] });
+    setShowStatusMenu(false);
+    setMenuPosition(null);
+  },
+});
+```
+
+Optimistic updates:
+- Click status → mutation starts
+- Query invalidated → library refetches
+- Card updates automatically
+- Menu closes on success
+
+#### Testing Results:
+✅ Dropdown opens on status badge click  
+✅ Opens downward when space available below  
+✅ Opens upward when near bottom of screen  
+✅ No flash or visible repositioning  
+✅ Actual menu height used (not hardcoded)  
+✅ Click outside closes menu  
+✅ Status updates immediately  
+✅ Card click still opens modal  
+✅ Current status highlighted  
+✅ Works on all screen sizes  
+✅ Backdrop prevents interaction with page  
+✅ Loading state shows during update  
+
+#### Technical Highlights:
+- **React Portal** - Renders outside card DOM hierarchy
+- **Off-screen measurement** - Zero visual artifacts
+- **Dynamic positioning** - Based on actual DOM measurements
+- **Smart direction detection** - Adapts to available space
+- **Event bubbling control** - Precise click handling with stopPropagation
+- **Optimistic updates** - React Query cache invalidation
+
+#### Challenges Solved:
+1. **Dropdown clipping** - Portal rendering at body level
+2. **Positioning flash** - Off-screen measurement before display
+3. **Hardcoded heights** - Actual DOM measurement via ref
+4. **Direction detection** - Real-time space calculation
+5. **Event conflicts** - stopPropagation prevents card clicks
+
+#### Current State:
+✅ **Quick status updates fully functional!**  
+✅ Smart positioning (up/down based on space)  
+✅ No visual artifacts or repositioning  
+✅ Portal rendering avoids clipping  
+✅ Optimistic UI updates  
+✅ Works at any scroll position  
+✅ Mobile responsive  
+
+#### Next Session Goals:
+- Build journal entry interface
+- Create statistics dashboard
+- Add user management page
+- Polish animations and transitions
+
+---
+
 ## Contact & Collaboration
 
 **Project Type:** Portfolio/Learning Project  
@@ -2021,4 +2184,4 @@ new Date(game.lastPlayedAt).toLocaleDateString('en-US', {
 ---
 
 *Document created: February 2026*  
-*Last updated: February 12, 2026 - Phase 4 in progress - Game detail modal complete with high-res images*
+*Last updated: February 12, 2026 - Phase 4 in progress - Quick status updates with smart positioning complete*
