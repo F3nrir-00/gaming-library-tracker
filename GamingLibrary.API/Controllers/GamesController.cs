@@ -132,7 +132,7 @@ namespace GamingLibrary.API.Controllers
             if (userId == 0)
                 return Unauthorized(new { message = "Invalid user token" });
 
-            var userGames = await _context.UserGames.Where(ug => ug.UserID == userId).ToListAsync();
+            var userGames = await _context.UserGames.Include(ug => ug.Game).Where(ug => ug.UserID == userId).ToListAsync();
 
             var totalGames = userGames.Count;
             var totalPlaytimeMinutes = userGames.Sum(ug => ug.PlaytimeMinutes);
@@ -141,7 +141,7 @@ namespace GamingLibrary.API.Controllers
                 platform = g.Key,
                 count = g.Count(),
                 playtimeHours = Math.Round(g.Sum(ug => ug.PlaytimeMinutes) / 60.0, 1)
-            }).ToList;
+            }).ToList();
 
             var mostPlayedGame = userGames.OrderByDescending(ug => ug.PlaytimeMinutes).Select(ug => new
             {

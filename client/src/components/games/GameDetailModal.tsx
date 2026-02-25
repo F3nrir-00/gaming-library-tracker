@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Game } from '../../types';
 import { gameService } from '../../services/gameService';
+import { journalService } from '../../services/journalService';
+import JournalEntryForm from '../journal/JournalEntryForm';
+import JournalEntryCard from '../journal/JournalEntryCard';
 
 interface GameDetailModalProps {
     game: Game | null;
@@ -11,6 +14,8 @@ interface GameDetailModalProps {
 
 export default function GameDetailModal({ game, isOpen, onClose }: GameDetailModalProps) {
     const [selectedStatus, setSelectedStatus] = useState(game?.status || '');
+    const [showJournalForm, setShowJournalForm] = useState(false);
+    const [editingEntry, setEditingEntry] = useState<number | null>(null);
     const queryClient = useQueryClient();
 
 
@@ -20,6 +25,58 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
             queryClient.invalidateQueries({ queryKey: ['games'] });
         },
     });
+
+    const { data: journalData } = useQuery({
+        queryKey: ['journal', game?.userGameID],
+        queryFn: () => journalService.getEntriesForGame(game!.userGameID),
+        enabled: !!game,
+    });
+
+    const createEntryMutation = useMutation({
+        mutationFn: (data: any) => journalService.createEntry(game!.userGameID, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['journal', game?.userGameID] });
+            setShowJournalForm(false);
+        },
+    });
+
+    const updateEntryMutation = useMutation({
+        mutationFn: ({ entryId, data }: { entryId: number; data: any }) =>
+            journalService.updateEntry(entryId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['journal', game?.userGameID] });
+            setEditingEntry(null);
+            setShowJournalForm(false);
+        },
+    });
+
+    const deleteEntryMutation = useMutation({
+        mutationFn: (entryId: number) => journalService.deleteEntry(entryId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['journal', game?.userGameID] });
+        },
+    });
+
+    const handleCreateEntry = async (data: any) => {
+        await createEntryMutation.mutateAsync(data);
+    };
+
+    const handleUpdateEntry = async (data: any) => {
+        if (editingEntry) {
+            await updateEntryMutation.mutateAsync({ entryId: editingEntry, data });
+        }
+    };
+
+    const handleDeleteEntry = async (entryId: number) => {
+        if (window.confirm('Are you sure you want to delete this entry?')) {
+            await deleteEntryMutation.mutateAsync(entryId);
+        }
+    };
+
+    const handleEditEntry = (entryId: number) => {
+        setEditingEntry(entryId);
+        setShowJournalForm(true);
+    };
 
     if (!isOpen || !game) return null;
 
@@ -183,32 +240,90 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
                         )}
                     </div>
 
-                    {/* Journal Section - Placeholder */}
+                    {/* Journal Section */}
                     <div className="border-t border-gray-200 pt-6 mt-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Journal Entries</h3>
-                            <button className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm">
-                                Add Entry
-                            </button>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Journal Entries</h3>
+                                {journalData && journalData.totalEntries > 0 && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {journalData.totalEntries} {journalData.totalEntries === 1 ? 'entry' : 'entries'}
+                                        {journalData.averageRating > 0 && (
+                                            <span className="ml-2">
+                                                • Average rating: <span className="text-yellow-500">★</span> {journalData.averageRating.toFixed(1)}/10
+                                            </span>
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+                            {!showJournalForm && (
+                                <button
+                                    onClick={() => {
+                                        setEditingEntry(null);
+                                        setShowJournalForm(true);
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+                                >
+                                    Add Entry
+                                </button>
+                            )}
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-6 text-center">
-                            <p className="text-gray-600 text-sm">
-                                Journal entries will appear here. (Coming next!)
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Footer */}
-                <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                    >
-                        Close
-                    </button>
+                        {/* Journal Form */}
+                        {showJournalForm && (
+                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                <h4 className="text-sm font-medium text-gray-700 mb-4">
+                                    {editingEntry ? 'Edit Entry' : 'New Entry'}
+                                </h4>
+                                <JournalEntryForm
+                                    onSubmit={editingEntry ? handleUpdateEntry : handleCreateEntry}
+                                    onCancel={() => {
+                                        setShowJournalForm(false);
+                                        setEditingEntry(null);
+                                    }}
+                                    initialData={
+                                        editingEntry
+                                            ? journalData?.entries.find((e) => e.entryID === editingEntry)
+                                            : undefined
+                                    }
+                                    isLoading={createEntryMutation.isPending || updateEntryMutation.isPending}
+                                />
+                            </div>
+                        )}
+
+                        {/* Journal Entries List */}
+                        {journalData && journalData.entries.length > 0 ? (
+                            <div className="space-y-4">
+                                {journalData.entries.map((entry) => (
+                                    <JournalEntryCard
+                                        key={entry.entryID}
+                                        entry={entry}
+                                        onEdit={() => handleEditEntry(entry.entryID)}
+                                        onDelete={() => handleDeleteEntry(entry.entryID)}
+                                    />
+                                ))}
+                            </div>
+                        ) : !showJournalForm ? (
+                            <div className="bg-gray-50 rounded-lg p-6 text-center">
+                                <p className="text-gray-600 text-sm">
+                                    No journal entries yet. Click "Add Entry" to record your thoughts!
+                                </p>
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
+
 }

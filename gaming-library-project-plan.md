@@ -599,10 +599,42 @@ User → Frontend → Backend → Platform OAuth
    - Optimistic UI updates via React Query
    - Loading state during update
 
-11. ⏳ **Journal Component** - NEXT STEP
-   - Entry creation form
-   - Entry list/timeline
-   - Tags and ratings
+11. ✅ **Journal Component**
+   - JournalEntryForm component with content, rating, session duration, tags
+   - JournalEntryCard component with edit/delete actions
+   - Integrated into GameDetailModal
+   - Create, edit, delete journal entries per game
+   - Average rating calculation per game
+   - Journal entries list with formatting
+   - Dedicated JournalPage showing all entries across all games
+   - Filter by tag and minimum rating
+   - Active filter display with clear options
+   - Edit entries inline
+   - Game title displayed above each entry
+   - Empty states with helpful messages
+
+12. ✅ **Statistics Dashboard**
+   - StatsPage with comprehensive gaming statistics
+   - Overview cards: total games, total playtime, most played game
+   - Games by platform breakdown with progress bars
+   - Playtime distribution visualization
+   - Percentage calculations (library and playtime)
+   - Fun stats cards: average playtime, days spent gaming, platforms used
+   - Gradient card designs
+   - Responsive grid layouts
+   - Empty states when no data available
+   - Loading states during fetch
+
+13. ✅ **User Management Page**
+   - Account information display (username, email)
+   - Connected platforms management
+   - Platform connection details (connected date, last sync)
+   - Sync platform button per connection
+   - Disconnect platform with confirmation
+   - Danger zone for account deletion
+   - Delete account with typed confirmation ("DELETE")
+   - Warning messages and multi-step confirmation
+   - Account link in navigation
 
 **Completed Deliverables:**
 - ✅ React app running on localhost:3000
@@ -622,11 +654,26 @@ User → Frontend → Backend → Platform OAuth
 - ✅ Game detail modal with status updates
 - ✅ High-resolution images in modal
 - ✅ Quick status dropdown on cards
+- ✅ Complete journal system (per-game and global view)
+- ✅ Statistics dashboard with visualizations
+- ✅ User account management page
+
+**Phase 4 Complete! 🎉**
+
+All planned frontend features have been implemented:
+- Full-featured game library interface
+- Journal system with filtering
+- Statistics and analytics
+- User account management
+- Responsive design throughout
+- Professional UI/UX
 
 **Next Steps:**
-- Create journal entry interface
-- Build statistics dashboard
-- Add user management page
+- Phase 5: Polish & Deployment
+- Add comprehensive testing
+- Implement logging
+- Deploy to production
+- Performance optimization
 
 ---
 
@@ -2172,6 +2219,230 @@ Optimistic updates:
 
 ---
 
+### Session 11: Journal System Implementation
+**Date:** February 12, 2026
+**Goal:** Build complete journal entry system for tracking gaming sessions
+
+#### Steps Completed:
+
+**1. Journal Service Created**
+Created `services/journalService.ts` with full CRUD operations:
+- `getEntriesForGame(userGameId)` - Fetch all entries for specific game
+- `getEntry(entryId)` - Fetch single entry
+- `createEntry(userGameId, data)` - Create new entry
+- `updateEntry(entryId, data)` - Update existing entry (partial updates)
+- `deleteEntry(entryId)` - Delete entry
+- `getMyEntries(params)` - Fetch all user entries with optional filters
+
+**2. JournalEntryForm Component**
+Created `components/journal/JournalEntryForm.tsx`:
+- Content textarea (required, multi-line)
+- Rating input (1-10, optional with visual star display)
+- Session duration input (minutes, auto-converts to hours/minutes display)
+- Tags input (comma-separated)
+- Client-side validation (required fields, rating range)
+- Loading states during submission
+- Reusable for both create and edit modes
+- Cancel and submit buttons
+- Error display
+
+**3. JournalEntryCard Component**
+Created `components/journal/JournalEntryCard.tsx`:
+- Formatted date display with "edited" indicator
+- Star rating display
+- Content with whitespace preservation
+- Session duration with clock icon
+- Tag pills with styling
+- Edit and delete action buttons
+- Hover effects on action buttons
+
+**4. Game Detail Modal Integration**
+Updated `GameDetailModal.tsx` with journal functionality:
+- Journal section displays below status updates
+- "Add Entry" button toggles form
+- Entry count and average rating display
+- Form appears inline when creating/editing
+- Entry list with JournalEntryCard components
+- Edit functionality pre-populates form
+- Delete with window.confirm confirmation
+- React Query mutations for all operations
+- Empty state when no entries
+
+**5. Dedicated Journal Page**
+Created `pages/JournalPage.tsx`:
+- View all entries across all games
+- Game title displayed above each entry
+- Tag filter dropdown (auto-populates from user's tags)
+- Minimum rating filter (1-10)
+- Active filter display with individual clear buttons
+- "Clear all" filters option
+- Edit entries inline with form
+- Delete with confirmation
+- Empty state with contextual messages
+- Loading state during fetch
+
+**6. Routes and Navigation**
+- Added `/journal` route to App.tsx
+- Route protected with ProtectedRoute
+- Navigation link already exists in Layout
+
+#### Testing Results:
+✅ Can create journal entries from game modal  
+✅ Content, rating, duration, tags all save correctly  
+✅ Average rating calculates correctly  
+✅ Entries display in chronological order (newest first)  
+✅ Edit functionality pre-populates form with existing data  
+✅ Partial updates work (only update provided fields)  
+✅ Delete confirmation prevents accidental deletion  
+✅ Journal page shows all entries grouped by game  
+✅ Tag filter populates with unique tags  
+✅ Rating filter works correctly  
+✅ Active filters display and can be cleared  
+✅ Empty states show appropriate messages  
+
+#### Technical Highlights:
+- **Reusable form component** - Single component for create and edit
+- **Partial updates** - PATCH-style updates only modify provided fields
+- **Tag extraction** - Dynamically builds filter options from existing entries
+- **Optimistic updates** - React Query cache invalidation on mutations
+- **Multi-location editing** - Edit from game modal or journal page
+- **Controlled inputs** - Form state managed with useState
+- **Validation** - Client and server-side validation
+
+#### Current State:
+✅ **Complete journal system functional!**  
+✅ Create entries with ratings, tags, session duration  
+✅ Edit and delete from multiple locations  
+✅ Filter by tags and rating  
+✅ Average rating calculation per game  
+✅ Professional card-based UI  
+✅ Empty states throughout  
+
+---
+
+### Session 12: Statistics Dashboard & User Management
+**Date:** February 12, 2026
+**Goal:** Complete final frontend features - statistics visualization and account management
+
+#### Steps Completed:
+
+**1. Statistics Page Created**
+Created `pages/StatsPage.tsx` with comprehensive visualizations:
+
+Overview cards (with icons):
+- Total games count
+- Total playtime in hours
+- Most played game with title and hours
+
+Games by Platform section:
+- Platform name with game count
+- Progress bar showing percentage of library
+- Playtime hours per platform
+- Dual percentage display (library % and playtime %)
+
+Playtime Distribution section:
+- Visual bars per platform
+- Gradient styling (indigo to purple)
+- Percentage of total playtime
+- Grid layout for multiple platforms
+
+Fun Stats (gradient cards):
+- Average playtime per game
+- Days spent gaming (playtime / 24)
+- Number of platforms used
+- Eye-catching gradient backgrounds
+
+**2. Backend Fix for Stats Endpoint**
+Fixed `GamesController.GetStats()`:
+- Added `.Include(ug => ug.Game)` to prevent null reference
+- Added `.ToList()` to materialize LINQ query before serialization
+- Proper eager loading of navigation properties
+
+Issues resolved:
+- NullReferenceException when accessing `Game.Title`
+- NotSupportedException when serializing deferred queries
+
+**3. User Management Page Created**
+Created `pages/UserManagementPage.tsx`:
+
+Account Information section:
+- Username display
+- Email display
+- Clean card-based layout
+
+Connected Platforms section:
+- List of connected platforms (currently Steam)
+- Connection date formatted
+- Last sync timestamp
+- Steam icon badge
+- "Sync Now" button per platform
+- "Disconnect" button with confirmation dialog
+- Empty state when no platforms connected
+
+Danger Zone section:
+- Red-themed warning design
+- Delete account warning message
+- Two-step confirmation process
+- Must type "DELETE" to confirm
+- Cancel option at each step
+- Currently logs user out (placeholder for actual deletion)
+
+**4. Navigation Updates**
+Updated `Layout.tsx`:
+- Added "Account" link next to username
+- Maintains existing navigation structure
+- Accessible from all pages
+
+**5. Routes Added**
+- `/stats` route with StatsPage
+- `/account` route with UserManagementPage
+- Both protected with ProtectedRoute
+
+#### Testing Results:
+✅ Stats page loads without errors  
+✅ All overview cards display correctly  
+✅ Platform breakdown renders with progress bars  
+✅ Percentages calculate accurately  
+✅ Most played game shows correctly  
+✅ Gradient cards render beautifully  
+✅ Empty states show when no data  
+✅ Account page displays user info  
+✅ Connected platforms list correctly  
+✅ Sync button triggers Steam sync  
+✅ Disconnect shows confirmation dialog  
+✅ Delete account requires typed confirmation  
+✅ Cannot proceed without typing "DELETE"  
+✅ Cancel resets delete confirmation  
+
+#### Technical Highlights:
+- **Data visualization** - Progress bars and percentage calculations
+- **Gradient designs** - Modern card styling with gradients
+- **EF Core fixes** - Proper navigation property loading
+- **LINQ materialization** - Preventing deferred execution errors
+- **Multi-step confirmation** - Safe account deletion flow
+- **Controlled form state** - Delete confirmation text validation
+- **Responsive grids** - Adaptive layouts for all screen sizes
+
+#### UI/UX Features:
+- Color-coded stat cards (indigo, green, yellow)
+- Visual progress bars for easy comparison
+- Dual percentage displays (library and playtime)
+- Warning colors for danger zone (red theme)
+- Empty states with helpful guidance
+- Loading states during async operations
+- Confirmation dialogs prevent accidents
+
+#### Current State:
+✅ **Phase 4 Complete! All frontend features implemented!**  
+✅ Statistics dashboard with visualizations  
+✅ User account management  
+✅ Platform connection management  
+✅ Multi-step delete confirmation  
+✅ Professional UI throughout  
+✅ All pages responsive  
+
+---
+
 ## Contact & Collaboration
 
 **Project Type:** Portfolio/Learning Project  
@@ -2184,4 +2455,4 @@ Optimistic updates:
 ---
 
 *Document created: February 2026*  
-*Last updated: February 12, 2026 - Phase 4 in progress - Quick status updates with smart positioning complete*
+*Last updated: February 12, 2026 - **PHASE 4 COMPLETE** - Full-stack MVP with all features implemented!*

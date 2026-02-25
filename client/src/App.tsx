@@ -5,6 +5,9 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import LibraryPage from './pages/LibraryPage';
+import JournalPage from './pages/JournalPage';
+import StatsPage from './pages/StatsPage';
+import UserManagementPage from './pages/UserManagementPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +31,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <LibraryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/journal"
+              element={
+                <ProtectedRoute>
+                  <JournalPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <ProtectedRoute>
+                  <StatsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <UserManagementPage />
                 </ProtectedRoute>
               }
             />
