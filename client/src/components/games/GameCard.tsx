@@ -23,12 +23,12 @@ export default function GameCard({ game, onClick }: GameCardProps) {
 
     return (
         <div onClick={onClick} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
-            <div className="aspect-[16/9] bg-gray-200 overflow-hidden">
+            <div className="aspect-[460/215] bg-gray-200 overflow-hidden">
                 {game.coverImageURL ? (
                     <img
                         src={game.coverImageURL}
                         alt={game.gameTitle}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://placehold.co/460x215?text=${game.gameTitle}`;
                         }}/>

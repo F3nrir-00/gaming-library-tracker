@@ -4,7 +4,9 @@ import Layout from '../components/layout/Layout';
 import GameCard from '../components/games/GameCard';
 import LibraryFilters from '../components/games/LibraryFilters';
 import ConnectSteamModal from '../components/games/ConnectSteamModal';
+import GameDetailModal from '../components/games/GameDetailModal';
 import { gameService } from '../services/gameService';
+import type { Game } from '../types';
 
 export default function LibraryPage() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -12,6 +14,7 @@ export default function LibraryPage() {
     const [selectedStatus, setSelectedStatus] = useState('');
     const [sortBy, setSortBy] = useState('playtime');
     const [showConnectModal, setShowConnectModal] = useState(false);
+    const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -37,7 +40,6 @@ export default function LibraryPage() {
                 sortOrder,
             });
         },
-        placeholderData: (previousData) => previousData, // Keep previous data while refetching
     });
 
     // Connect Steam mutation
@@ -119,7 +121,6 @@ export default function LibraryPage() {
 
                 {/* Games Grid - Changed this section */}
                 {isLoading ? (
-                    // Only show spinner on initial load
                     <div className="flex justify-center items-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                     </div>
@@ -127,7 +128,11 @@ export default function LibraryPage() {
                     <div className="relative">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {library.games.map((game) => (
-                                <GameCard key={game.userGameID} game={game} />
+                                <GameCard
+                                    key={game.userGameID}
+                                    game={game}
+                                    onClick={() => setSelectedGame(game)}
+                                />
                             ))}
                         </div>
                     </div>
@@ -151,6 +156,14 @@ export default function LibraryPage() {
                 isOpen={showConnectModal}
                 onClose={() => setShowConnectModal(false)}
                 onConnect={handleConnectSteam}
+            />
+
+            {/* Game Detail Modal */}
+            <GameDetailModal
+                key={selectedGame?.userGameID}
+                game={selectedGame}
+                isOpen={selectedGame !== null}
+                onClose={() => setSelectedGame(null)}
             />
         </Layout>
     );
