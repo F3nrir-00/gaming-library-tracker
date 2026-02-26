@@ -36,9 +36,12 @@ services:
         condition: service_healthy
     networks:
       - gaming-library-network
+    volumes:
+      - dataprotection-keys:/app/keys
 
 volumes:
   sqlserver-data:
+  dataprotection-keys:  
 
 networks:
   gaming-library-network:

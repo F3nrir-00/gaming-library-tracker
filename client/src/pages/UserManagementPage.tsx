@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { gameService } from '../services/gameService';
 import { useAuth } from '../contexts/AuthContext';
+import { authService } from '../services/authService';
 
 export default function UserManagementPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -27,6 +28,17 @@ export default function UserManagementPage() {
     },
   });
 
+  const deleteAccountMutation = useMutation({
+    mutationFn: (confirmation: string) => authService.deleteAccount(confirmation),
+    onSuccess: () => {
+      logout();
+      navigate('/login');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to delete account');
+    },
+  });
+
   // Sync Steam mutation
   const syncSteamMutation = useMutation({
     mutationFn: gameService.syncSteam,
@@ -47,12 +59,8 @@ export default function UserManagementPage() {
   };
 
   const handleDeleteAccount = () => {
-    // This would call a delete account API endpoint
-    // For now, just logout
     if (deleteConfirmText === 'DELETE') {
-      alert('Account deletion would happen here. For this demo, we\'ll just log you out.');
-      logout();
-      navigate('/login');
+      deleteAccountMutation.mutate(deleteConfirmText);
     }
   };
 
@@ -98,7 +106,7 @@ export default function UserManagementPage() {
                     <div className="flex items-center space-x-4">
                       <div className="p-2 bg-indigo-100 rounded-lg">
                         <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.02 18.923c-3.816 0-6.904-3.093-6.904-6.904 0-.503.056-.993.156-1.465l3.764 1.556a2.028 2.028 0 001.932 2.66c1.123 0 2.035-.913 2.035-2.035v-.075l2.916-2.075c2.075.047 3.741 1.735 3.741 3.8 0 2.098-1.706 3.804-3.804 3.804a3.777 3.777 0 01-3.836-3.266z"/>
+                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-.02 18.923c-3.816 0-6.904-3.093-6.904-6.904 0-.503.056-.993.156-1.465l3.764 1.556a2.028 2.028 0 001.932 2.66c1.123 0 2.035-.913 2.035-2.035v-.075l2.916-2.075c2.075.047 3.741 1.735 3.741 3.8 0 2.098-1.706 3.804-3.804 3.804a3.777 3.777 0 01-3.836-3.266z" />
                         </svg>
                       </div>
                       <div>
@@ -227,10 +235,12 @@ export default function UserManagementPage() {
                   </button>
                   <button
                     onClick={handleDeleteAccount}
-                    disabled={deleteConfirmText !== 'DELETE'}
+                    disabled={deleteConfirmText !== 'DELETE' || deleteAccountMutation.isPending}
                     className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed"
                   >
-                    I understand, delete my account
+                    {deleteAccountMutation.isPending
+                      ? 'Deleting account...'
+                      : 'I understand, delete my account'}
                   </button>
                 </div>
               </div>

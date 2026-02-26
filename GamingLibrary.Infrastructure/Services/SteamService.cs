@@ -190,6 +190,29 @@ namespace GamingLibrary.Infrastructure.Services
             return userGames;
         }
 
+        public async Task<string> ResolveUsernameAsync(string username)
+        {
+            var url = $"{_steamBaseUrl}/ISteamUser/ResolveVanityURL/v1/?key={_steamApiKey}&vanityurl={username}";
+
+            _logger.LogInformation("Resolving Steam username: {USername}", username);
+
+            var response = await _httpClient.GetAsync(url);
+
+            if(!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Steam API request failed with status: {StatusCode}", response.StatusCode);
+                throw new HttpRequestException($"Steam API request failed: {response.StatusCode}");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<SteamVanityURLResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (result?.Response?.Success != 1)
+                throw new InvalidOperationException("Steam username not found. Please check the username and try again");
+
+            return result.Response.SteamId;
+        }
+
         private string NormalizeTitle(string title)
         {
             return title.ToLowerInvariant()
@@ -203,5 +226,20 @@ namespace GamingLibrary.Infrastructure.Services
         {
             return $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg";
         }
+    }
+
+    internal class SteamVanityURLResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("response")]
+        public SteamVanityURLData Response { get; set; } = new();
+    }
+
+    internal class SteamVanityURLData
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("steamid")]
+        public string SteamId { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("success")]
+        public int Success { get; set; }
     }
 }

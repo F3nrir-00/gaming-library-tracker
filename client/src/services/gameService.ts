@@ -32,8 +32,8 @@ export const gameService = {
         return response.data;
     },
 
-    async connectSteam(steamID: string): Promise<void> {
-        await api.post('/platform/steam/connect', { steamID });
+    async connectSteam(username: string): Promise<void> {
+        await api.post('/platform/steam/connect-username', { username });
     },
 
     async syncSteam(): Promise<{gamesSynced: number}> {

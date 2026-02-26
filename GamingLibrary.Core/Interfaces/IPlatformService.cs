@@ -9,5 +9,6 @@ namespace GamingLibrary.Core.Interfaces
         Task<int> SyncUserGamesAsync(int userID, string platformUserId);
 
         Task<List<UserGame>> GetUserGamesFromPlatformAsync(int userID, string platformUserId);
+        Task<string> ResolveUsernameAsync(string username);
     }
 }

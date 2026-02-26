@@ -2,7 +2,9 @@
 using GamingLibrary.Core.Interfaces;
 using GamingLibrary.Infrastructure.Data;
 using GamingLibrary.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -18,7 +20,9 @@ namespace GamingLibrary.API
 
             if (builder.Environment.EnvironmentName == "Docker")
                 builder.Configuration.AddJsonFile("appsettings.Docker.json", optional: false, reloadOnChange: true);
-            
+
+
+
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Register AuthService
@@ -30,25 +34,48 @@ namespace GamingLibrary.API
             builder.Services.AddHttpClient<IgdbService>();
             builder.Services.AddSingleton<IMetadataService, IgdbService>();
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowFrontend", policy =>
+                {
+                    policy.WithOrigins("http://localhost:3000")
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials();
+                });
+            });
+
             // Configure JWT Authentication
             var jwtSettings = builder.Configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT Secret Key Not Configured");
+            var logger = LoggerFactory.Create(config => config.AddConsole()).CreateLogger("Startup");
+            logger.LogInformation("JWT SecretKey: {Key}", builder.Configuration["JwtSettings:SecretKey"]);
+            logger.LogInformation("JWT Issuer: {Issuer}", builder.Configuration["JwtSettings:Issuer"]);
+            logger.LogInformation("JWT Audience: {Audience}", builder.Configuration["JwtSettings:Audience"]);
+
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"))
+                .SetApplicationName("GamingLibrary");
 
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>
+            })
+            .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
-                { 
+                {
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                    ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+                    ValidAudience = builder.Configuration["JwtSettings:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"]
+                            ?? throw new InvalidOperationException("JWT Secret Key not configured"))
+                    )
                 };
             });
 
@@ -84,7 +111,7 @@ namespace GamingLibrary.API
             }
 
             app.UseHttpsRedirection();
-
+            app.UseCors("AllowFrontend");
             app.UseAuthentication();
             app.UseAuthorization();
 

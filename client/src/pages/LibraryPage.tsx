@@ -1,22 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Layout from '../components/layout/Layout';
 import GameCard from '../components/games/GameCard';
 import LibraryFilters from '../components/games/LibraryFilters';
-import ConnectSteamModal from '../components/games/ConnectSteamModal';
 import GameDetailModal from '../components/games/GameDetailModal';
 import { gameService } from '../services/gameService';
 import type { Game } from '../types';
+import { useSearchParams } from 'react-router-dom';
+import api from '../services/api';
 
 export default function LibraryPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedPlatform, setSelectedPlatform] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [sortBy, setSortBy] = useState('playtime');
-    const [showConnectModal, setShowConnectModal] = useState(false);
     const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
     const queryClient = useQueryClient();
+
+    useEffect(() => {
+        const steamSuccess = searchParams.get('steamSuccess');
+        const steamError = searchParams.get('steamError');
+
+        if (steamSuccess) {
+            // Refresh connections and games
+            queryClient.invalidateQueries({ queryKey: ['platformConnections'] });
+            queryClient.invalidateQueries({ queryKey: ['games'] });
+            setSearchParams({});
+        }
+
+        if (steamError) {
+            alert(`Steam connection failed: ${steamError}`);
+            setSearchParams({});
+        }
+    }, [searchParams]);
 
     // Fetch platform connections
     const { data: connections } = useQuery({
@@ -42,14 +60,6 @@ export default function LibraryPage() {
         },
     });
 
-    // Connect Steam mutation
-    const connectSteamMutation = useMutation({
-        mutationFn: gameService.connectSteam,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['platformConnections'] });
-        },
-    });
-
     // Sync Steam mutation
     const syncSteamMutation = useMutation({
         mutationFn: gameService.syncSteam,
@@ -58,10 +68,6 @@ export default function LibraryPage() {
             queryClient.invalidateQueries({ queryKey: ['platformConnections'] });
         },
     });
-
-    const handleConnectSteam = async (steamId: string) => {
-        await connectSteamMutation.mutateAsync(steamId);
-    };
 
     const handleSyncSteam = async () => {
         await syncSteamMutation.mutateAsync();
@@ -84,7 +90,20 @@ export default function LibraryPage() {
                     <div className="flex space-x-3">
                         {!hasSteamConnection ? (
                             <button
-                                onClick={() => setShowConnectModal(true)}
+                                onClick={async () => {
+                                    try {
+                                        console.log('Token before request:', localStorage.getItem('token'));
+                                        const response = await api.get('/auth/steam/login');
+                                        console.log('Response:', response);
+                                        if (response.data.redirectUrl) {
+                                            window.location.href = response.data.redirectUrl;
+                                        }
+                                    } catch (error: any) {
+                                        console.error('Steam login error:', error);
+                                        console.error('Error response:', error.response);
+                                        alert(error.response?.data?.message || 'Failed to connect to Steam');
+                                    }
+                                }}
                                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center"
                             >
                                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -151,13 +170,6 @@ export default function LibraryPage() {
                 )}
             </div>
 
-            {/* Connect Steam Modal */}
-            <ConnectSteamModal
-                isOpen={showConnectModal}
-                onClose={() => setShowConnectModal(false)}
-                onConnect={handleConnectSteam}
-            />
-
             {/* Game Detail Modal */}
             <GameDetailModal
                 key={selectedGame?.userGameID}
@@ -165,6 +177,6 @@ export default function LibraryPage() {
                 isOpen={selectedGame !== null}
                 onClose={() => setSelectedGame(null)}
             />
-        </Layout>
+        </Layout >
     );
 }

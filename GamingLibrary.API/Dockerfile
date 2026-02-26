@@ -26,6 +26,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
+RUN mkdir -p /app/keys 
 
 # Copy published files
 COPY --from=publish /app/publish .

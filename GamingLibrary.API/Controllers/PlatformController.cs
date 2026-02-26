@@ -68,6 +68,73 @@ namespace GamingLibrary.API.Controllers
             });
         }
 
+        [HttpPost("steam/connect-username")]
+        public async Task<IActionResult> ConnectSteamByUsername([FromBody] ConnectSteamByUsernameRequest request)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            if (userId == 0)
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Username))
+            {
+                return BadRequest(new { message = "Steam username is required" });
+            }
+
+            _logger.LogInformation("User {UserId} connecting Steam account with username: {Username}",
+                userId, request.Username);
+
+            try
+            {
+                // Resolve username to Steam ID
+                var steamId = await _platformService.ResolveUsernameAsync(request.Username);
+
+                // Check if connection already exists
+                var existingConnection = await _context.PlatformConnections
+                    .FirstOrDefaultAsync(pc => pc.UserID == userId && pc.Platform == "Steam");
+
+                if (existingConnection != null)
+                {
+                    existingConnection.PlatformUserId = steamId;
+                    existingConnection.IsActive = true;
+                    existingConnection.ConnectedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    var connection = new PlatformConnection
+                    {
+                        UserID = userId,
+                        Platform = "Steam",
+                        PlatformUserId = steamId,
+                        IsActive = true,
+                        ConnectedAt = DateTime.UtcNow
+                    };
+                    _context.PlatformConnections.Add(connection);
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Steam account connected successfully",
+                    username = request.Username,
+                    steamId = steamId,
+                    platform = "Steam"
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error connecting Steam account for user {UserId}", userId);
+                return StatusCode(500, new { message = "Failed to connect Steam account" });
+            }
+        }
+
         [HttpPost("steam/sync")]
         public async Task<IActionResult> SyncSteam()
         {
@@ -149,5 +216,9 @@ namespace GamingLibrary.API.Controllers
     public class ConnectSteamRequest
     {
         public string SteamId { get; set; } = string.Empty;
+    }
+    public class ConnectSteamByUsernameRequest
+    {
+        public string Username { get; set; } = string.Empty;
     }
 }
