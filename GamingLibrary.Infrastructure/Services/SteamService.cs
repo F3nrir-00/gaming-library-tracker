@@ -74,10 +74,10 @@ namespace GamingLibrary.Infrastructure.Services
                     }
                     else
                     {
-                        if (string.IsNullOrEmpty(existingGame.Developer) || string.IsNullOrEmpty(existingGame.Publisher) || string.IsNullOrEmpty(existingGame.Description))
+                        if (string.IsNullOrEmpty(existingGame.CoverImageURL) || string.IsNullOrEmpty(existingGame.BannerImageUrl) || string.IsNullOrEmpty(existingGame.Developer) || string.IsNullOrEmpty(existingGame.Publisher) || string.IsNullOrEmpty(existingGame.Description))
                             existingGame = await _metadataService.EnrichGameMetadataAsync(existingGame);
 
-                        existingGame.CoverImageURL = userGame.Game.CoverImageURL;
+                        // existingGame.CoverImageURL = userGame.Game.CoverImageURL;
                     }
 
                     if(existingUserGames.TryGetValue(userGame.PlatformGameID, out var existingUserGame))
@@ -178,7 +178,6 @@ namespace GamingLibrary.Infrastructure.Services
                     {
                         Title = steamGame.Name,
                         NormalizedTitle = NormalizeTitle(steamGame.Name),
-                        CoverImageURL = GetSteamImageUrl(steamGame.AppID),
                         CreatedAt = DateTime.UtcNow
                     }
                 };
@@ -220,11 +219,6 @@ namespace GamingLibrary.Infrastructure.Services
                 .Replace("™", "")
                 .Replace(":", "")
                 .Trim();
-        }
-
-        private string? GetSteamImageUrl(int appId)
-        {
-            return $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg";
         }
     }
 

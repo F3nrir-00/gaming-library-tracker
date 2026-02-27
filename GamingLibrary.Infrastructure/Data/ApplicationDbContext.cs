@@ -70,6 +70,12 @@ namespace GamingLibrary.Infrastructure.Data
             {
                 entity.HasKey(e => e.GameID);
 
+                entity.Property(e => e.IgdbId)
+                .IsRequired(false);
+
+                entity.Property(e => e.BannerImageUrl)
+                .IsRequired(false);
+
                 entity.Property(e => e.Title)
                 .IsRequired()
                 .HasMaxLength(255);

@@ -3,6 +3,7 @@
     public class Game
     {
         public int GameID { get; set; }
+        public int? IgdbId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string NormalizedTitle { get; set; } = string.Empty;
         public string? Description {  get; set; }
@@ -11,6 +12,7 @@
         public string? Developer { get; set; }
         public string? Publisher { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string? BannerImageUrl { get; set; }
 
         public ICollection<UserGame> UserGames { get; set; } = new List<UserGame>();
     }

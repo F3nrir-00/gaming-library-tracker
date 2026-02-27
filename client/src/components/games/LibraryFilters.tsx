@@ -50,6 +50,7 @@ export default function LibraryFilters({
           >
             <option value="">All Platforms</option>
             <option value="Steam">Steam</option>
+            <option value="PlayStation">PlayStation</option>
             <option value="Xbox">Xbox</option>
             <option value="Epic">Epic Games</option>
           </select>

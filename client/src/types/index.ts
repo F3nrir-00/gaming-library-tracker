@@ -30,6 +30,7 @@ export interface Game {
     platformGameID: string;
     gameTitle: string;
     coverImageURL?: string;
+    bannerImageUrl?: string;
     developer?: string;
     publisher?: string;
     playtimeMinutes: number;

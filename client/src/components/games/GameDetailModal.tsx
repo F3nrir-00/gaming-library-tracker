@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Game } from '../../types';
 import { gameService } from '../../services/gameService';
@@ -18,6 +18,17 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
     const [editingEntry, setEditingEntry] = useState<number | null>(null);
     const queryClient = useQueryClient();
 
+
+    useEffect(() => {
+        if (game) {
+            console.log('Game data:', {
+                title: game.gameTitle,
+                coverImageUrl: game.coverImageURL,
+                bannerImageUrl: game.bannerImageUrl,
+                steamAppId: game.platformGameID
+            });
+        }
+    }, [game]);
 
     const updateStatusMutation = useMutation({
         mutationFn: (status: string) => gameService.updateStatus(game!.userGameID, status),
@@ -78,8 +89,6 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
         setShowJournalForm(true);
     };
 
-    if (!isOpen || !game) return null;
-
     const handleStatusUpdate = async (status: string) => {
         setSelectedStatus(status);
         await updateStatusMutation.mutateAsync(status);
@@ -100,7 +109,27 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
         }
     };
 
+    const deleteGameMutation = useMutation({
+        mutationFn: (userGameId: number) => gameService.deleteGame(userGameId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['games'] });
+            onClose(); // Close modal after deletion
+        },
+    });
+
+    const handleDeleteGame = () => {
+        if (!game) return;
+
+        const confirmMessage = `Are you sure you want to remove "${game.gameTitle}" from your library?\n\nThis will permanently delete:\n- The game from your library\n- All journal entries for this game\n\nThis action cannot be undone.`;
+
+        if (window.confirm(confirmMessage)) {
+            deleteGameMutation.mutate(game.userGameID);
+        }
+    };
+
     const statuses = ['Not Started', 'In Progress', 'Completed', 'Abandoned'];
+
+    if (!isOpen || !game) return null;
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -124,10 +153,10 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
                 <div className="p-6">
                     {/* Cover Image */}
                     <div className="mb-6">
-                        <div className="aspect-[1365/440] bg-gray-200 rounded-lg overflow-hidden">
-                            {game.coverImageURL ? (
+                        <div className="aspect-[1280/720] bg-gray-900 rounded-lg overflow-hidden">
+                            {game.bannerImageUrl ? (
                                 <img
-                                    src={game.coverImageURL.replace('/header.jpg', '/library_hero.jpg')}
+                                    src={game.bannerImageUrl.replace('/t_screenshot_huge', '/t_original')}
                                     alt={game.gameTitle}
                                     className="w-full h-full object-contain"
                                     onError={(e) => {
@@ -136,7 +165,7 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
                                         if (!target.src.includes('/header.jpg')) {
                                             target.src = game.coverImageURL!;
                                         } else {
-                                            target.src = `https://placehold.co/1365x440?text=${game.gameTitle}`;
+                                            target.src = `https://placehold.co/1280x720?text=${game.gameTitle}`;
                                         }
                                     }}
                                 />
@@ -314,6 +343,28 @@ export default function GameDetailModal({ game, isOpen, onClose }: GameDetailMod
 
                     {/* Footer */}
                     <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end">
+                        <button
+                            onClick={handleDeleteGame}
+                            disabled={deleteGameMutation.isPending}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-400 flex items-center"
+                        >
+                            {deleteGameMutation.isPending ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete Game
+                                </>
+                            )}
+                        </button>
                         <button
                             onClick={onClose}
                             className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"

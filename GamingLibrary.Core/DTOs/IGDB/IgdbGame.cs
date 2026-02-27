@@ -24,6 +24,12 @@ namespace GamingLibrary.Core.DTOs.IGDB
 
         [JsonPropertyName("genres")]
         public List<IgdbGenre>? Genres { get; set; }
+
+        [JsonPropertyName("artworks")]
+        public List<IgdbImage>? Artworks { get; set; }
+
+        [JsonPropertyName("screenshots")]
+        public List<IgdbImage>? Screenshots { get; set; }
     }
 
     public class IgdbCover
@@ -66,5 +72,14 @@ namespace GamingLibrary.Core.DTOs.IGDB
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+    }
+
+    public class IgdbImage
+    {
+        [JsonPropertyName("id")]
+        public int ID { get; set; }
+
+        [JsonPropertyName("url")]
+        public string? Url { get; set; } = string.Empty;
     }
 }

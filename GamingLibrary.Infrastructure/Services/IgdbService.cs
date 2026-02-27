@@ -3,6 +3,7 @@ using GamingLibrary.Core.Entities;
 using GamingLibrary.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json;
 
@@ -84,8 +85,18 @@ namespace GamingLibrary.Infrastructure.Services
                 {
                     // IGDB returns URLs like //images.igdb.com/...
                     // We want higher resolution (t_cover_big instead of t_thumb)
-                    game.CoverImageURL = "https:" + igdbGame.Cover.Url
+                    game.CoverImageURL = "https:" + igdbGame.Cover?.Url?
                         .Replace("t_thumb", "t_cover_big");
+                }
+
+                if (string.IsNullOrEmpty(game.BannerImageUrl) && (igdbGame.Artworks?[0].Url != null || igdbGame.Screenshots?[0].Url != null))
+                {
+                    // IGDB returns URLs like //images.igdb.com/...
+                    // We want higher resolution (t_cover_big instead of t_thumb)
+                    game.BannerImageUrl = igdbGame.Artworks?[0].Url != null
+                                ? $"https:{igdbGame.Artworks[0].Url?.Replace("t_thumb", "t_screenshot_huge")}"
+                                : igdbGame.Screenshots?[0].Url != null
+                                ? $"https:{igdbGame.Screenshots[0].Url?.Replace("t_thumb", "t_screenshot_huge")}" : null;
                 }
 
                 return game;
@@ -141,6 +152,8 @@ namespace GamingLibrary.Infrastructure.Services
                     search "{title}";
                     fields name, summary, first_release_date, 
                            cover.url,
+                           artworks.url,
+                           screenshots.url,
                            involved_companies.company.name,
                            involved_companies.developer,
                            involved_companies.publisher,
@@ -165,10 +178,129 @@ namespace GamingLibrary.Infrastructure.Services
                 }
 
                 var content = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("IGDB Raw Response: {Content}", content);
                 var games = JsonSerializer.Deserialize<List<IgdbGame>>(content,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 return games?.FirstOrDefault();
+            }
+            finally
+            {
+                _rateLimiter.Release();
+            }
+        }
+
+        public async Task<List<IgdbGame>> SearchGamesAsync(string query, int limit = 10)
+        {
+            await EnsureValidTokenAsync();
+            await _rateLimiter.WaitAsync();
+
+            try
+            {
+                var timeSinceLastRequest = (DateTime.UtcNow - _lastRequestTime).TotalMilliseconds;
+                if (timeSinceLastRequest < MinRequestIntervalMs)
+                {
+                    await Task.Delay((int)(MinRequestIntervalMs - timeSinceLastRequest));
+                }
+                _lastRequestTime = DateTime.UtcNow;
+                _logger.LogInformation("Searching IGDB for games matching: {Query}", query);
+                var body = $@"
+            search ""{query}"";
+            fields name, summary, artworks.url, screenshots.url, artworks.url, cover.url, first_release_date, 
+                   involved_companies.company.name, involved_companies.developer, involved_companies.publisher,
+                   genres.name;
+            limit {limit};
+        ";
+
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/games")
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "text/plain")
+                };
+
+                request.Headers.Add("Client-ID", _clientId);
+                request.Headers.Add("Authorization", $"Bearer {_accessToken}");
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("IGDB search failed with status: {Status}", response.StatusCode);
+                    return new List<IgdbGame>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("IGDB Raw Response: {Content}", content);
+                var games = JsonSerializer.Deserialize<List<IgdbGame>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (games == null || games.Count == 0)
+                {
+                    _logger.LogInformation("No games found for query: {Query}", query);
+                    return new List<IgdbGame>();
+                }
+
+                _logger.LogInformation("Found {Count} games for query: {Query}", games.Count, query);
+                return games;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching IGDB for games: {Query}", query);
+                return new List<IgdbGame>();
+            }
+            finally
+            {
+                _rateLimiter.Release();  // Don't forget to release the semaphore!
+            }
+        }
+
+        public async Task<IgdbGame?> GetGameByIdAsync(int igdbId)
+        {
+            await EnsureValidTokenAsync();
+            await _rateLimiter.WaitAsync();
+
+            try
+            {
+                var timeSinceLastRequest = (DateTime.UtcNow - _lastRequestTime).TotalMilliseconds;
+                if (timeSinceLastRequest < MinRequestIntervalMs)
+                {
+                    await Task.Delay((int)(MinRequestIntervalMs - timeSinceLastRequest));
+                }
+                _lastRequestTime = DateTime.UtcNow;
+
+                _logger.LogInformation("Fetching game by IGDB ID: {IgdbId}", igdbId);
+
+                var body = $@"
+fields name, summary, cover.url, screenshots.url, artworks.url, first_release_date, 
+       involved_companies.company.name, involved_companies.developer, involved_companies.publisher,
+       genres.name;
+where id = {igdbId};
+";
+
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/games")
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "text/plain")
+                };
+                request.Headers.Add("Client-ID", _clientId);
+                request.Headers.Add("Authorization", $"Bearer {_accessToken}");
+
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("IGDB fetch by ID failed with status: {Status}", response.StatusCode);
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var games = JsonSerializer.Deserialize<List<IgdbGame>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                return games?.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching game by ID: {IgdbId}", igdbId);
+                return null;
             }
             finally
             {
